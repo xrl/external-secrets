@@ -132,6 +132,15 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) {
 		setupLogger()
 
+		for _, f := range feature.Features() {
+			if f.Prepare != nil {
+				if err := f.Prepare(cmd.Context()); err != nil {
+					setupLog.Error(err, "unable to prepare provider runtime")
+					os.Exit(1)
+				}
+			}
+		}
+
 		ctrlmetrics.SetUpLabelNames(enableExtendedMetricLabels)
 		esmetrics.SetUpMetrics()
 		config := ctrl.GetConfigOrDie()

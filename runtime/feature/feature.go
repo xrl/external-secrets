@@ -18,6 +18,8 @@ limitations under the License.
 package feature
 
 import (
+	"context"
+
 	"github.com/spf13/pflag"
 )
 
@@ -27,6 +29,9 @@ import (
 type Feature struct {
 	Flags      *pflag.FlagSet
 	Initialize func()
+	// Prepare runs before controller Kubernetes configuration and manager creation.
+	// An error aborts startup. It is not called by standalone subcommands.
+	Prepare func(context.Context) error
 }
 
 var features = make([]Feature, 0)

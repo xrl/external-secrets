@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # The compiler runs on the native CI host. This shell stage is only the
-# preparation seam for the later SDK integration, never a cross-build stage.
+# cache preparation stage using the exact controller binary, never a cross-build stage.
 FROM golang:1.26.5-bookworm AS prepare
 ARG BUILDPLATFORM
 ARG TARGETPLATFORM

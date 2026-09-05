@@ -3,8 +3,9 @@
 set -eu
 binary=$1
 image_root=$2
-mkdir -p "$image_root"
-echo 'Native executable smoke test only: SDK cache preparation is not integrated.'
-"$binary" --help
-# Files written beneath image_root are copied at the same absolute paths in the
-# final image. The SDK integration owns cache population and read permissions.
+cache="$image_root/var/cache/onepassword-sdk"
+"$binary" onepassword-sdk-cache prepare --cache-dir "$cache"
+# Cache entries are trusted executable input, never writable by the controller.
+chown -R 0:0 "$image_root"
+find "$image_root" -type d -exec chmod 0555 {} \;
+find "$image_root" -type f -exec chmod 0444 {} \;

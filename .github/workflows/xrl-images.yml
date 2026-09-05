@@ -53,7 +53,7 @@ jobs:
           XRL_REVISION: ${{ github.sha }}
         run: |
           set -o pipefail
-          make xrl.image.build xrl.image.verify 2>&1 | tee evidence/build.txt
+          make xrl.cache.test xrl.image.build xrl.image.verify 2>&1 | tee evidence/build.txt
           image="$IMAGE_REPOSITORY:$XRL_TAG-$XRL_ARCH"
           test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = "linux/$XRL_ARCH"
           docker image inspect "$image" > evidence/image.json

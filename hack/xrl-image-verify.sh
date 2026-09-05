@@ -2,9 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 image=$1
-echo 'Fresh-process smoke test only: this does not assert an SDK cache hit.'
-# Replace --help with the real offline require-hit command when the SDK lands.
-# Keep these sandbox flags: no writable mounts, tmpfs, network or capabilities.
+run() {
+  "${DOCKER:-docker}" run --rm --network=none --read-only --user 65534:65534 \
+    --cap-drop=ALL --security-opt=no-new-privileges "$image" "$@"
+}
 set -x
-"${DOCKER:-docker}" run --rm --network=none --read-only --user 65534:65534 \
-  --cap-drop=ALL --security-opt=no-new-privileges "$image" --help
+run onepassword-sdk-cache check --cache-dir /var/cache/onepassword-sdk
+# An existing directory without entries must fail, not compile or fall back.
+if output=$(run onepassword-sdk-cache check --cache-dir /var/cache 2>&1); then
+  echo 'ERROR: strict cache miss unexpectedly succeeded' >&2
+  exit 1
+fi
+printf '%s\n' "$output"
+grep -F '1Password SDK cache check failed:' <<< "$output"
+# Normal startup also rejects a miss before Kubernetes configuration discovery.
+if output=$(run --onepassword-sdk-cache-dir /var/cache 2>&1); then
+  echo 'ERROR: controller accepted an unprepared cache' >&2
+  exit 1
+fi
+printf '%s\n' "$output"
+grep -F 'unable to prepare provider runtime' <<< "$output"

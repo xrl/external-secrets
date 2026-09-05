@@ -107,3 +107,13 @@ This is a BETA feature. Please use with caution.
 ### Supported Functionality
 
 Please check the documentation on 1password for [Supported Functionality](https://developer.1password.com/docs/sdks/functionality).
+
+## Fork-native compilation cache (opt-in)
+
+Fork images can use `--onepassword-sdk-cache-dir=/var/cache/onepassword-sdk`
+through the chart's existing `extraArgs`. Empty retains default SDK behavior.
+This is a trusted executable compilation cache, not a secret or credential cache.
+Configured startup requires a compatible cache hit before the manager starts;
+there is no compilation fallback. Run credential-free target CPU preflight before
+enabling it. See [native image preparation and CPU compatibility](../contributing/xrl-native-images.md)
+for ownership, immutable dependency pins, offline prepare/check and ARM64 LSE gates.

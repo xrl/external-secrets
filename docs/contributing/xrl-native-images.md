@@ -1,9 +1,9 @@
 # xrl native integration images
 
-This fork-only pipeline is independent of the pending SDK cache API. It builds
+This fork-only pipeline prepares the original 1Password SDK native cache. It builds
 **all providers**, using Go **1.26.5**, on native `ubuntu-24.04` (AMD64) and
 `ubuntu-24.04-arm` (ARM64) hosts. There is no QEMU, provider stripping, WASM
-optimization, runtime memory tuning, or dependency change. The upstream
+optimization or runtime memory tuning. Only the SDK/runtime fork replacements change. The upstream
 Dockerfile, image defaults, and main-branch build behavior are unchanged.
 
 `.github/workflows/xrl-images.yml` runs on pushes to `xrl/integration`, PRs
@@ -55,31 +55,60 @@ non-Linux host, an architecture mismatch, or a different Go toolchain.
 code), explicitly retaining `all_providers`. `Dockerfile.xrl.dockerignore` is a
 small allowlist independent of the upstream context exclusions.
 
-Two concrete seams are reserved for the later provider/SDK writer:
+## Cache contract and ownership
 
-1. `hack/xrl-image-prepare.sh BINARY IMAGE_ROOT` executes during the native
-   `Dockerfile.xrl` preparation stage with networking disabled. It currently
-   performs **only `--help`** and creates an empty image root. Once a real SDK
-   API/CLI exists, this hook should populate its cache beneath `IMAGE_ROOT`;
-   that tree is copied to `/` in the final distroless image. Ensure files are
-   readable by UID/GID 65534 without runtime writes. Extend the context allowlist
-   only if additional explicit build inputs are needed.
-2. `hack/xrl-image-verify.sh IMAGE` starts a fresh process with `--network=none`,
-   `--read-only`, UID/GID 65534, no capabilities and no writable mounts/tmpfs.
-   Replace the current `--help` smoke command with the actual offline
-   **require-hit** command. Keep sandbox flags, fail on misses, and prove the
-   fresh process used the embedded cache. No SDK method or command is assumed
-   here; these images do **not** currently claim cache population or cache hits.
+The controller flag `--onepassword-sdk-cache-dir=/var/cache/onepassword-sdk`
+explicitly opts in. The empty default retains the upstream SDK path. No chart
+API changes are needed: configure the existing `extraArgs` value only after target
+preflight. A configured controller prepares one process-lifetime owned runtime
+before Kubernetes configuration, manager creation, reconciliation or readiness.
+Missing, incompatible or corrupt entries abort startup, with no compilation or
+read-write fallback. Both store validation and normal client creation use the
+same owner; per-store client and secret caches are unchanged. The shared owner
+is deliberately not closed on manager shutdown: a shutdown timeout need not mean
+all reconcilers have stopped. Process exit reclaims it. Failed preparation and
+standalone CLI owners are closed in SDK ownership order.
 
-Preserve the original shipping `core.wasm` SHA-256
+`external-secrets onepassword-sdk-cache prepare --cache-dir DIRECTORY` populates
+using the exact controller binary, embedded artifact and SDK configuration.
+`check` instead requires a hit. Neither command creates a manager, discovers
+Kubernetes configuration, reads credentials or authenticates a client. CLI output
+records OS/architecture and ARM64 LSE availability; success is printed only after
+preparation and cleanup succeed.
+
+`hack/xrl-image-prepare.sh` runs `prepare` in Docker with `--network=none`. Its
+output tree is root-owned, directories 0555 and files 0444, readable by UID 65534.
+`hack/xrl-image-verify.sh` starts fresh UID/GID 65534 processes with no network,
+writable root, capabilities, mounts or tmpfs. It requires a cache hit, checks an
+existing-but-unpopulated directory fails, and checks normal controller startup
+fails on the same miss before Kubernetes configuration. The image does not turn
+on the controller flag by default. Native CI also runs `make xrl.cache.test`.
+
+`make xrl.cache.digest` checks the dependency's embedded `core.wasm` SHA-256:
 `23d115f4ac7519b48172df3e8615945572dbda7033d51b44c9490fd533ae0f23`.
-The later integration must verify it against the dependency's embedded artifact;
-this CI-only stage does not modify or inspect module-cache source. The deployed
-baseline uses Wazero 1.12.0. A Wazero compiled cache may depend on architecture,
-CPU features, runtime/compiler version, and WASM identity: a native GitHub runner
-is **not** proof of compatibility with every same-architecture deployment CPU.
-Validate require-hit on representative target CPUs and reject incompatible
-entries; never hide a miss with network access or runtime writes.
+No optimized WASM or benchmark binary contributes cache entries. Root and provider
+modules must both replace the SDK and Wazero; replacements from dependencies are
+not inherited. `make xrl.cache.provider.test` and `xrl.cache.command.test` exercise
+those module boundaries independently. `make xrl.cache.build` builds the complete
+all-provider executable locally without unrelated generated-file prerequisites.
+
+## CPU compatibility is an acceptance gate
+
+The pinned runtime retains `wazevo.fileCacheKey`'s CPU feature bits, module identity
+and compiler-format magic. ARM64 `platform.loadCpuFeatureFlags` maps
+`cpu.ARM64.HasATOMICS` (LSE) to `CpuFeatureArm64Atomic`; cache keys therefore differ
+between LSE and non-LSE hosts. Do not normalize keys, disable feature detection,
+or infer compatibility from `linux/arm64` alone. AMD64 feature keys also remain
+unchanged. Cache input is trusted executable data: checksums detect corruption,
+not malicious replacement. Only trusted build artifacts belong in the image.
+
+The owner must run the image's credential-free `check` on a representative target
+CPU with the same read-only/no-network restrictions before enabling the flag.
+Record both build and target `arm64-lse` output and a successful fresh-process
+require-hit (not just `lscpu` or architecture). This is the proof of LSE/config
+compatibility; mismatches must block rollout, not trigger recompilation. CI proves
+only compatibility with its own native runner. No target compatibility is claimed
+from local Darwin checks or from packaging alone.
 
 ## Remaining merge gates
 

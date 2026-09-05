@@ -22,7 +22,7 @@ xrl.native.check: ## Refuse cross-compilation or a toolchain different from the 
 	test "$$(go env GOHOSTARCH)" = '$(XRL_ARCH)'
 	test "$$(go env GOVERSION)" = go1.26.5
 
-xrl.image.build: xrl.native.check ## Compile all providers natively, then run the image preparation hook
+xrl.image.build: xrl.native.check xrl.cache.digest ## Compile all providers natively, then run the image preparation hook
 	$(MAKE) build-$(XRL_ARCH) PROVIDER=all_providers BUILD_ARGS=CGO_ENABLED=0 OUTPUT_DIR=bin
 	file bin/external-secrets-linux-$(XRL_ARCH)
 	go version -m bin/external-secrets-linux-$(XRL_ARCH)
@@ -32,3 +32,19 @@ xrl.image.build: xrl.native.check ## Compile all providers natively, then run th
 
 xrl.image.verify: ## Fresh non-root process, no network, no writable filesystem or mounts
 	DOCKER='$(DOCKER)' bash hack/xrl-image-verify.sh '$(XRL_IMAGE)'
+
+.PHONY: xrl.cache.test xrl.cache.provider.test xrl.cache.command.test xrl.cache.build xrl.cache.digest
+xrl.cache.test: xrl.cache.provider.test xrl.cache.command.test ## Credential-free provider routing and cache CLI tests
+
+xrl.cache.provider.test: ## Test the provider module independently, including real cache preparation
+	cd providers/v1/onepasswordsdk && GOWORK=off go test -race .
+xrl.cache.command.test: ## Test the cache CLI under root all-provider dependency resolution
+	GOWORK=off go test -tags all_providers ./cmd/controller -run '^TestOnePasswordCacheCommand$$'
+
+xrl.cache.build: ## Build the exact all-provider CLI locally without code generation
+	GOWORK=off go build -tags all_providers -o $(OUTPUT_DIR)/external-secrets-cache .
+
+xrl.cache.digest: ## Verify the pinned SDK still embeds the original shipping WASM
+	@directory=$$(GOWORK=off go list -m -f '{{.Dir}}' github.com/1password/onepassword-sdk-go); \
+	 test -n "$$directory"; \
+	 python3 -c 'import hashlib, pathlib, sys; digest=hashlib.sha256(pathlib.Path(sys.argv[1], "internal/wasm/core.wasm").read_bytes()).hexdigest(); print("core.wasm sha256=" + digest); assert digest == "23d115f4ac7519b48172df3e8615945572dbda7033d51b44c9490fd533ae0f23"' "$$directory"
