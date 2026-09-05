@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 import importlib.util
 import json
+import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -44,6 +46,40 @@ class ImageIdentityTests(unittest.TestCase):
         self.assertIn("branches-ignore: [xrl/integration]", (workflows / "e2e.yml").read_text())
         self.assertEqual((workflows / "publish.yml").read_text().count("if: github.repository == 'external-secrets/external-secrets'"), 2)
         self.assertIn("if: github.repository == 'external-secrets/external-secrets'", (workflows / "release.yml").read_text().split("  promote:", 1)[1])
+
+    def test_cache_image_sandbox(self):
+        script = Path(__file__).with_name("xrl-image-verify.sh")
+        with tempfile.TemporaryDirectory() as directory:
+            docker = Path(directory, "docker")
+            log = Path(directory, "calls.jsonl")
+            docker.write_text("""#!/usr/bin/env python3
+import json, os, sys
+with open(os.environ['CALL_LOG'], 'a') as log:
+    log.write(json.dumps(sys.argv[1:]) + '\\n')
+if os.environ.get('ALLOW_MISS') == '1':
+    sys.exit(0)
+if sys.argv[-1] == '/var/cache/onepassword-sdk':
+    sys.exit(0)
+if '--onepassword-sdk-cache-dir' in sys.argv:
+    print('unable to prepare provider runtime')
+else:
+    print('1Password SDK cache check failed: miss')
+sys.exit(1)
+""")
+            docker.chmod(0o755)
+            env = dict(os.environ, DOCKER=str(docker), CALL_LOG=str(log))
+            result = subprocess.run(["bash", str(script), "test-image"], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            calls = [json.loads(line) for line in log.read_text().splitlines()]
+            self.assertEqual(len(calls), 3)
+            for call in calls:
+                for required in ("--network=none", "--read-only", "65534:65534", "--cap-drop=ALL", "--security-opt=no-new-privileges"):
+                    self.assertIn(required, call)
+                self.assertNotIn("--mount", call)
+                self.assertNotIn("--tmpfs", call)
+            result = subprocess.run(["bash", str(script), "test-image"], env=dict(env, ALLOW_MISS="1"), capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("miss unexpectedly succeeded", result.stderr)
 
     def test_exact_manifest(self):
         refs = [f"{images.REPOSITORY}@sha256:{char * 64}" for char in "ab"]

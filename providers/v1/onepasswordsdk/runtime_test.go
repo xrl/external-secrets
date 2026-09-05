@@ -63,9 +63,9 @@ func TestProviderRuntimeRouting(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "store", Namespace: "test", ResourceVersion: "1"},
 		Spec: esv1.SecretStoreSpec{Provider: &esv1.SecretStoreProvider{OnePasswordSDK: &esv1.OnePasswordSDKProvider{
 			Vault: "vault",
+			Auth:  &esv1.OnePasswordSDKAuth{ServiceAccountSecretRef: esmeta.SecretKeySelector{Name: "test-token", Key: "token"}},
 		}}},
 	}
-	store.Spec.Provider.OnePasswordSDK.Auth.ServiceAccountSecretRef = esmeta.SecretKeySelector{Name: "test-token", Key: "token"}
 	// Store reconciliation and ordinary reconciliation both enter Provider.NewClient.
 	_, err := p.ValidateStore(store)
 	require.NoError(t, err)
