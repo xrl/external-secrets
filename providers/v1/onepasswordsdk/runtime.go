@@ -45,7 +45,12 @@ var controllerRuntime sdkRuntime
 
 func init() {
 	flags := pflag.NewFlagSet("onepassword-sdk", pflag.ExitOnError)
-	flags.StringVar(&controllerRuntime.directory, "onepassword-sdk-cache-dir", "", "Trusted read-only 1Password SDK compilation cache; requires a cache hit at startup. Empty retains default SDK behavior.")
+	flags.StringVar(
+		&controllerRuntime.directory,
+		"onepassword-sdk-cache-dir",
+		"",
+		"Trusted read-only 1Password SDK compilation cache; requires a cache hit at startup. Empty retains default SDK behavior.",
+	)
 	feature.Register(feature.Feature{Flags: flags, Prepare: controllerRuntime.prepare})
 }
 
