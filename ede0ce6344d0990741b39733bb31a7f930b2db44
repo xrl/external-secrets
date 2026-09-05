@@ -1,0 +1,1 @@
+Initial provider race run exposed nil Auth in the new synthetic fixture, not production code; initialize it. Add executable mocked-Docker smoke covering all sandbox flags, hit/miss/startup paths and rejection when strict misses unexpectedly succeed. Native Docker execution remains CI gate.
