@@ -1,0 +1,1 @@
+Parent observed inherited e2e integration-trusted attempting unavailable upstream private provider credentials on same-fork PR. Exclude xrl/integration PRs at legacy entry trigger, matching CI. Upstream/default/private-dispatch behavior and dependency-review security check remain unchanged; no credentials/private suite runs added.
