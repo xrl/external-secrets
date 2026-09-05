@@ -45,6 +45,7 @@ xrl.cache.build: ## Build the exact all-provider CLI locally without code genera
 	GOWORK=off go build -tags all_providers -o $(OUTPUT_DIR)/external-secrets-cache .
 
 xrl.cache.digest: ## Verify the pinned SDK still embeds the original shipping WASM
+	GOWORK=off go mod download github.com/1password/onepassword-sdk-go
 	@directory=$$(GOWORK=off go list -m -f '{{.Dir}}' github.com/1password/onepassword-sdk-go); \
 	 test -n "$$directory"; \
 	 python3 -c 'import hashlib, pathlib, sys; digest=hashlib.sha256(pathlib.Path(sys.argv[1], "internal/wasm/core.wasm").read_bytes()).hexdigest(); print("core.wasm sha256=" + digest); assert digest == "23d115f4ac7519b48172df3e8615945572dbda7033d51b44c9490fd533ae0f23"' "$$directory"

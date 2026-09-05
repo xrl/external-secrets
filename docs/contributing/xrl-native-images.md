@@ -110,7 +110,11 @@ Record both build and target `arm64-lse` output and a successful fresh-process
 require-hit (not just `lscpu` or architecture). This is the proof of LSE/config
 compatibility; mismatches must block rollout, not trigger recompilation. CI proves
 only compatibility with its own native runner. No target compatibility is claimed
-from local Darwin checks or from packaging alone.
+from local Darwin checks or from packaging alone. As a negative test on an LSE
+ARM64 host, prepare normally and run only the fresh `check` process with
+`GODEBUG=cpu.atomics=off`: it must reject the populated cache as a miss. This
+test-only mask demonstrates that LSE is part of the key; never use it for image
+population or deployment, and do not treat it as representative-target proof.
 
 ## Remaining merge gates
 
