@@ -1,0 +1,183 @@
+name: xrl native images
+
+on:
+  push:
+    branches: [xrl/integration]
+  pull_request:
+    branches: [xrl/integration]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GOTOOLCHAIN: local
+  IMAGE_REPOSITORY: ghcr.io/xrl/external-secrets
+
+jobs:
+  build:
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.5'
+          cache: false
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - name: Validate scripts and native build identity
+        env:
+          XRL_ARCH: ${{ matrix.arch }}
+        run: |
+          make xrl.images.test xrl.native.check xrl.tools.actionlint
+          make xrl.images.lint ACTIONLINT="$PWD/bin/actionlint"
+          mkdir -p evidence
+          tag=$(python3 hack/xrl-images.py tag "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_SHA")
+          echo "XRL_TAG=$tag" >> "$GITHUB_ENV"
+          { uname -a; lscpu; go version; git rev-parse HEAD; } | tee evidence/native.txt
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Build and verify without publishing credentials
+        env:
+          XRL_ARCH: ${{ matrix.arch }}
+          XRL_REVISION: ${{ github.sha }}
+        run: |
+          set -o pipefail
+          make xrl.cache.test xrl.image.build xrl.image.verify 2>&1 | tee evidence/build.txt
+          image="$IMAGE_REPOSITORY:$XRL_TAG-$XRL_ARCH"
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = "linux/$XRL_ARCH"
+          docker image inspect "$image" > evidence/image.json
+          docker save "$image" -o image.tar
+          sha256sum image.tar | tee evidence/archive.sha256
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-image-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: |
+            image.tar
+            evidence/
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+  publish-children:
+    needs: build
+    if: github.repository == 'xrl/external-secrets' && github.ref == 'refs/heads/xrl/integration' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: native-image-${{ matrix.arch }}-${{ github.run_attempt }}
+      - name: Check publishing boundary and image
+        env:
+          XRL_ARCH: ${{ matrix.arch }}
+        run: |
+          python3 hack/xrl-images.py guard "$GITHUB_REPOSITORY" "$GITHUB_REF" "$GITHUB_EVENT_NAME"
+          tag=$(python3 hack/xrl-images.py tag "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_SHA")
+          echo "XRL_TAG=$tag" >> "$GITHUB_ENV"
+          sha256sum --check evidence/archive.sha256
+          docker load -i image.tar
+          image="$IMAGE_REPOSITORY:$tag-$XRL_ARCH"
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = "linux/$XRL_ARCH"
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Push exact native image and record produced digest
+        env:
+          XRL_ARCH: ${{ matrix.arch }}
+        run: |
+          image="$IMAGE_REPOSITORY:$XRL_TAG-$XRL_ARCH"
+          docker push "$image"
+          digest=$(docker image inspect "$image" --format '{{range .RepoDigests}}{{println .}}{{end}}' | sed -n "s|^$IMAGE_REPOSITORY@||p")
+          mkdir -p digests
+          python3 hack/xrl-images.py record "$XRL_TAG" "$XRL_ARCH" "$digest" | tee "digests/$XRL_ARCH.json"
+          { echo '### Native child'; cat "digests/$XRL_ARCH.json"; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-digest-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: digests/*.json
+          if-no-files-found: error
+
+  manifest:
+    needs: publish-children
+    if: github.repository == 'xrl/external-secrets' && github.ref == 'refs/heads/xrl/integration' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: native-digest-*-${{ github.run_attempt }}
+          path: digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - name: Check publishing boundary
+        run: |
+          python3 hack/xrl-images.py guard "$GITHUB_REPOSITORY" "$GITHUB_REF" "$GITHUB_EVENT_NAME"
+          tag=$(python3 hack/xrl-images.py tag "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_SHA")
+          echo "XRL_TAG=$tag" >> "$GITHUB_ENV"
+          python3 hack/xrl-images.py references digests "$tag"
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Assemble and verify exact digest manifest
+        run: |
+          mapfile -t refs < <(python3 hack/xrl-images.py references digests "$XRL_TAG")
+          image="$IMAGE_REPOSITORY:$XRL_TAG"
+          docker buildx imagetools create --tag "$image" "${refs[@]}"
+          docker buildx imagetools inspect "$image" --raw > manifest.json
+          python3 hack/xrl-images.py verify digests "$XRL_TAG" manifest.json
+          docker buildx imagetools inspect "$image" | tee manifest.txt
+          { echo "### $image"; cat manifest.txt; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Require anonymous registry access
+        run: |
+          anonymous=$(mktemp -d)
+          # A clean Docker config has no GHCR credentials; never fall back to login.
+          DOCKER_CONFIG="$anonymous" docker manifest inspect "$IMAGE_REPOSITORY:$XRL_TAG" > anonymous-manifest.json
+          python3 hack/xrl-images.py verify digests "$XRL_TAG" anonymous-manifest.json
+          for arch in amd64 arm64; do
+            digest=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["digest"])' "digests/$arch.json")
+            DOCKER_CONFIG="$anonymous" docker pull --platform "linux/$arch" "$IMAGE_REPOSITORY@$digest"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: native-manifest-evidence-${{ github.run_attempt }}
+          path: |
+            digests/
+            manifest.json
+            manifest.txt
+            anonymous-manifest.json
+          if-no-files-found: error

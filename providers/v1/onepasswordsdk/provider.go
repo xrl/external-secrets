@@ -59,6 +59,7 @@ const (
 // Provider contains the main cache for onepasswordsdk provider.
 type Provider struct {
 	clientCache *cache.Cache[esv1.SecretsClient]
+	runtime     *sdkRuntime
 }
 
 // SecretsClient wraps a 1Password SDK client for a specific vault or environment.
@@ -101,7 +102,7 @@ func (p *Provider) NewClient(ctx context.Context, store esv1.GenericStore, kube 
 		}
 	}
 
-	c, err := onepassword.NewClient(
+	c, err := p.runtime.newClient(
 		ctx,
 		onepassword.WithServiceAccountToken(serviceAccountToken),
 		onepassword.WithIntegrationInfo(config.IntegrationInfo.Name, config.IntegrationInfo.Version),
@@ -196,6 +197,7 @@ func (p *Provider) Capabilities() esv1.SecretStoreCapabilities {
 func NewProvider() esv1.Provider {
 	return &Provider{
 		clientCache: cache.Must[esv1.SecretsClient](100, nil),
+		runtime:     &controllerRuntime,
 	}
 }
 

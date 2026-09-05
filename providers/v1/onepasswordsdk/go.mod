@@ -7,6 +7,7 @@ require (
 	github.com/external-secrets/external-secrets/apis v0.0.0
 	github.com/external-secrets/external-secrets/runtime v0.0.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	k8s.io/api v0.36.3
 	k8s.io/apiextensions-apiserver v0.36.3
@@ -70,7 +71,6 @@ require (
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/tetratelabs/wabin v0.0.0-20230304001439-f6f874872834 // indirect
 	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -102,6 +102,8 @@ require (
 )
 
 replace (
+	github.com/1password/onepassword-sdk-go => github.com/xrl/onepassword-sdk-go v0.4.1-xrl.0
 	github.com/external-secrets/external-secrets/apis => ../../../apis
 	github.com/external-secrets/external-secrets/runtime => ../../../runtime
+	github.com/tetratelabs/wazero => github.com/xrl/wazero v1.12.0-xrl.0
 )

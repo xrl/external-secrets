@@ -4,7 +4,8 @@ on:
   push:
     branches:
       - main
-  pull_request: {}
+  pull_request:
+    branches-ignore: [xrl/integration] # Fork integration uses the isolated native image workflow.
 
 env:
   # Common versions
