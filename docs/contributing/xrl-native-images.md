@@ -88,7 +88,8 @@ on the controller flag by default. Native CI also runs `make xrl.cache.test`.
 `make xrl.cache.digest` checks the dependency's embedded `core.wasm` SHA-256:
 `23d115f4ac7519b48172df3e8615945572dbda7033d51b44c9490fd533ae0f23`.
 No optimized WASM or benchmark binary contributes cache entries. Root and provider
-modules must both replace the SDK and Wazero; replacements from dependencies are
+modules both pin `github.com/xrl/onepassword-sdk-go v0.4.1-xrl.0` and
+`github.com/xrl/wazero v1.12.0-xrl.0`; replacements from dependencies are
 not inherited. `make xrl.cache.provider.test` and `xrl.cache.command.test` exercise
 those module boundaries independently. `make xrl.cache.build` builds the complete
 all-provider executable locally without unrelated generated-file prerequisites.

@@ -3,6 +3,7 @@ module github.com/external-secrets/external-secrets
 go 1.26.5
 
 replace (
+	github.com/1password/onepassword-sdk-go => github.com/xrl/onepassword-sdk-go v0.4.1-xrl.0
 	github.com/external-secrets/external-secrets/apis => ./apis
 	github.com/external-secrets/external-secrets/generators/v1/acr => ./generators/v1/acr
 	github.com/external-secrets/external-secrets/generators/v1/beyondtrustworkloadcredentials => ./generators/v1/beyondtrustworkloadcredentials
@@ -64,9 +65,11 @@ replace (
 	github.com/external-secrets/external-secrets/providers/v1/webhook => ./providers/v1/webhook
 	github.com/external-secrets/external-secrets/providers/v1/yandex => ./providers/v1/yandex
 	github.com/external-secrets/external-secrets/runtime => ./runtime
+	github.com/tetratelabs/wazero => github.com/xrl/wazero v1.12.0-xrl.0
 )
 
 require (
+	github.com/1password/onepassword-sdk-go v0.4.1
 	cloud.google.com/go/iam v1.5.3 // indirect
 	cloud.google.com/go/secretmanager v1.16.0 // indirect
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
@@ -192,7 +195,6 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
-	github.com/1password/onepassword-sdk-go v0.4.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.19.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azcertificates v1.4.0 // indirect
@@ -430,7 +432,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/sys v0.46.0
 	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0
