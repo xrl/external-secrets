@@ -1,0 +1,1 @@
+Validation-only golines correction found by make reviewable with pinned Go 1.26.5. Split the existing cache flag registration across lines without changing arguments or behavior. No dependency or generated-file changes; native cache CI for parent 31335607 remains behavioral evidence but not an exact-head receipt for this whitespace-only child.
