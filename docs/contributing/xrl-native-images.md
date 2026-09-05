@@ -12,7 +12,8 @@ log in, and export checked local images as short-lived workflow artifacts.
 Only `push` or `workflow_dispatch` on **exactly** `refs/heads/xrl/integration`
 in **exactly** `xrl/external-secrets` can start the separate write-permission
 publisher jobs. These load the images from this run/attempt; they do not rebuild.
-Legacy CI excludes integration PRs, and legacy image publishing/signing and
+Legacy CI and credential-bearing e2e exclude integration PRs; upstream tests
+remain unchanged. Legacy image publishing/signing and
 release promotion are upstream-repository-only. Do not enable a legacy fork
 publisher with `GHCR_USERNAME` or `IS_FORK`.
 

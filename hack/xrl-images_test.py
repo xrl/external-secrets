@@ -41,6 +41,7 @@ class ImageIdentityTests(unittest.TestCase):
         self.assertIn("runner: ubuntu-24.04\n", build)
         self.assertEqual(workflow.count("persist-credentials: false"), 3)
         self.assertIn("branches-ignore: [xrl/integration]", (workflows / "ci.yml").read_text())
+        self.assertIn("branches-ignore: [xrl/integration]", (workflows / "e2e.yml").read_text())
         self.assertEqual((workflows / "publish.yml").read_text().count("if: github.repository == 'external-secrets/external-secrets'"), 2)
         self.assertIn("if: github.repository == 'external-secrets/external-secrets'", (workflows / "release.yml").read_text().split("  promote:", 1)[1])
 
