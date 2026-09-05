@@ -91,6 +91,8 @@ jobs:
         run: make docs.publish DOCS_ALIAS=latest
 
   promote:
+    # Never promote upstream-style image tags from a fork.
+    if: github.repository == 'external-secrets/external-secrets'
     name: Promote Container Image
     runs-on: ubuntu-latest
     strategy:

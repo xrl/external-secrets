@@ -406,6 +406,9 @@ clean:  ## Clean bins
 	@rm -f $(OUTPUT_DIR)/external-secrets-linux-*
 	@$(OK) go build $*
 
+# Fork-only targets are opt-in; do not change upstream image defaults.
+include hack/xrl-images.mk
+
 # ====================================================================================
 # Build Dependencies
 

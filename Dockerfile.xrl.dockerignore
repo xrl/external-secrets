@@ -1,0 +1,5 @@
+**
+!bin/
+!bin/external-secrets-linux-*
+!hack/
+!hack/xrl-image-prepare.sh
